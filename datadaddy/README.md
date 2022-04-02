@@ -1,4 +1,5 @@
 <img src="src/assets/img/icon-128.png" width="64"/>
+<img src="datadaddy/datadaddy.png" width="64"/>
 
 # Data Daddy v3.1
 
