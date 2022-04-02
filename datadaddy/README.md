@@ -1,5 +1,5 @@
-<img src="datadaddy/src/assets/img/DataDaddyLogo.png" width="64"/>
-<img src="datadaddy/src/assets/img/DataDaddyLogo.png" width="64"/>
+<img src="src/assets/img/DataDaddyLogo.png" width="64"/>
+<img src="src/assets/img/DataDaddyLogo.png" width="64"/>
 
 # Data Daddy v3.1
 
