@@ -1,7 +1,8 @@
 <img src="src/assets/img/DataDaddyLogo.png" width="64"/>
-<img src="src/assets/img/DataDaddyLogo.png" width="64"/>
 
 # Data Daddy v3.1
+
+<img src="src/assets/img/datadaddy.png" width="64"/>
 
 ## TO-DO
 
