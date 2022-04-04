@@ -4,8 +4,10 @@
 
 ## TO-DO
 
+:white_check_mark: / :heavy_check_mark:
+
 ### Scraper
-1. Add RegEx to parse emails
+- [X] Add RegEx to parse emails
 2. Integrate crawler
 
 ### Form Filling Automation
