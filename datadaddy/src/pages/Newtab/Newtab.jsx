@@ -51,9 +51,9 @@ const Newtab = () => {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Learn React!
+          Exercise Your CCPA Rights!
         </a>
-        <h6>The color of this paragraph is defined using SASS.</h6>
+        <h6>NewTab Test.</h6>
       </header>
     </div>
   );
