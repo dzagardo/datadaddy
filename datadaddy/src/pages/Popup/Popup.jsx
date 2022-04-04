@@ -22,26 +22,16 @@ const HTMLParser = require('node-html-parser')
 
 const JSSoup = require('jssoup').default;
 
-var html = `
-<html>
-  <head>
-    <title>Hello World</title>
-  </head>
-  <body>
-    <h1>Hello World</h1>
-    <p class="foo">First</p>
-    <p class="foo bar">Second</p>
-    <div class="foo">Third</div>
-  </body>
-</html>
-`;
-
 // Add this in your component file
 require('react-dom');
 window.React2 = require('react');
 console.log(window.React1 === window.React2);
 
 let root;
+var emails = [];
+var hyperlinks = [];
+var emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi;
+var hyperlinksRegex = /^(ftp|http|https):\/\/[^ "]+$/gi;
 const url = "https://www.ycombinator.com/legal/"
 
 fetch(`${url}`)
@@ -50,25 +40,24 @@ fetch(`${url}`)
   .then(() => extractData(root))
 
 async function extractData(root) {
-  // const description = await root.querySelector('p')
-  // console.log(root)
-
   const soup = new JSSoup(root);
-  // console.log(soup)
   var links = soup.findAll('a');
-  console.log(links);
-  console.log(links[0]);
 
-  console.log(links[0].attrs);
+
   for (let i in links) {
-    console.log(links[i].attrs.href);
+    if (links[i].attrs.href !== undefined) {
+      // Email Regex
+      if (links[i].attrs.href.match(emailRegex) !== null) {
+        emails.push(links[i].attrs.href.match(emailRegex));
+      }
+      // Hyperlinks Regex
+      if (links[i].attrs.href.match(hyperlinksRegex) !== null) {
+        hyperlinks.push(links[i].attrs.href.match(hyperlinksRegex));
+      }
+    }
   }
-  // links.name
-  // links.name = 'span'
-  // flattens circular html doc into readable html with <tags></tags>
-  // console.log(soup.prettify());
-  // gets inner html text that is not <tags></tags>
-  // console.log(soup.text);
+  console.log(emails);
+  console.log(hyperlinks);
 }
 
 const Popup = () => {
@@ -92,7 +81,7 @@ const Popup = () => {
     // Data Broker Email Address
     // Right here vvv
     // var emailTwo = setBroker(target.value);
-    var emailTwo = "privacy@towerdata.com";
+    var emailTwo = emails;
     var emailThree = "&su=";
     var emailFour = "Right to Access Request (Section 110 of the CCPA)";
     var emailFive = "&body=";
@@ -105,6 +94,15 @@ const Popup = () => {
     chrome.tabs.create({ url: newURL });
   }
 
+  // ...
+  // I HAVE NO IDEA IF THIS CODE IS NECESSARY...
+  // SEEMS TO FUNCTION WHEN I COMMENT IT OUT?...
+  // CAN'T REMEMBER WHAT I WAS DOING WITH IT...
+  // LOOKS UI RELATED?...
+  //
+  // ¯\_(ツ)_/¯
+  //
+  // ...
   const BootstrapInput = styled(InputBase)(({ theme }) => ({
     'label + &': {
       marginTop: theme.spacing(3),
