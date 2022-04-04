@@ -4,23 +4,21 @@
 
 ## TO-DO
 
-:white_check_mark: / :heavy_check_mark:
-
 ### Scraper
 - [X] Add RegEx to parse emails
-2. Integrate crawler
+- [] Integrate crawler
 
 ### Form Filling Automation
-1. Touch base with OneTrust
-2. Create Data Flow Diagram for OneTrust DSAR Module
-3. Research MUI AutoComplete
+- [X] Touch base with OneTrust
+- [] Create Data Flow Diagram for OneTrust DSAR Module
+- [] Research MUI AutoComplete
 
 ### Voice Assistant Integration
-1. Research Siri API
-2. Research Alexa API
-3. Research Google Assistant API
+- [] Research Siri API
+- [] Research Alexa API
+- [] Research Google Assistant API
 
 ### NLP
-1. Research NLP libraries in JavaScript/TypeScript
-2. Settle on library choice
-3. Develop and train model on Privacy Policies or Privacy Pages
+- [X] Research NLP libraries in JavaScript/TypeScript
+- [] Settle on library choice
+- [] Develop and train model on Privacy Policies or Privacy Pages
