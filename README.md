@@ -2,10 +2,12 @@
 
 # <img src="datadaddy/src/assets/img/datadaddy.png" width="200"/>
 
-## TO-DO
+## TODO
 
 ### Scraper
 - [X] Add RegEx to parse emails
+- [ ] Settle on a crawling algorithm
+- [ ] Set up (probably recursive) Fetch calls
 - [ ] Integrate crawler
 
 ### Form Filling Automation
