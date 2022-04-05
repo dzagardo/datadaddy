@@ -4,10 +4,12 @@
 
 ## TODO
 
-### Scraper
+### Crawler
 - [X] Add RegEx to parse emails
-- [ ] Settle on a crawling algorithm
-- [ ] Set up (probably recursive) Fetch calls
+- [X] Settle on a crawling algorithm
+- [X] Set up (probably recursive) Fetch calls
+- [ ] Dynamically load url from current tab
+- [ ] Debug infinite fetch calls
 - [ ] Integrate crawler
 
 ### Form Filling Automation

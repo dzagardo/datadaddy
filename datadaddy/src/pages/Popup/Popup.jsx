@@ -3,8 +3,6 @@ import logo from '../../assets/img/logo.svg';
 import datadaddy from '../../assets/img/DataDaddyLogo.png';
 import Greetings from '../../containers/Greetings/Greetings';
 import './Popup.css';
-import { Cheerio } from 'cheerio';
-import URLParse from 'url-parse';
 import TextField from '@mui/material/TextField';
 import MuiButton from '@mui/material/Button';
 import SendIcon from '@mui/icons-material/Send';
@@ -32,33 +30,64 @@ var emails = [];
 var hyperlinks = [];
 var emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi;
 var hyperlinksRegex = /^(ftp|http|https):\/\/[^ "]+$/gi;
-const url = "https://www.ycombinator.com/legal/"
+var deep = 0;
+const url = 'http://www.ycombinator.com/legal/';
 
-fetch(`${url}`)
-  .then(res => res.text())
-  .then(body => root = HTMLParser.parse(body))
-  .then(() => extractData(root))
+async function scrape() {
 
-async function extractData(root) {
-  const soup = new JSSoup(root);
-  var links = soup.findAll('a');
+  fetch(`${url}`)
+    .then(res => res.text())
+    .then(body => root = HTMLParser.parse(body))
+    .then(() => extractData(root, deep))
 
+  function extractData(root, depth) {
+    if (depth === 1) { return }
+    if (depth > 3) { return }
+    const soup = new JSSoup(root);
+    var links = soup.findAll('a');
 
-  for (let i in links) {
-    if (links[i].attrs.href !== undefined) {
-      // Email Regex
-      if (links[i].attrs.href.match(emailRegex) !== null) {
-        emails.push(links[i].attrs.href.match(emailRegex));
-      }
-      // Hyperlinks Regex
-      if (links[i].attrs.href.match(hyperlinksRegex) !== null) {
-        hyperlinks.push(links[i].attrs.href.match(hyperlinksRegex));
+    for (let i in links) {
+      if (links[i].attrs.href !== undefined) {
+        // Email Regex
+        if (links[i].attrs.href.match(emailRegex) !== null) {
+          emails.push(links[i].attrs.href.match(emailRegex));
+        }
+        // Hyperlinks Regex
+        if (links[i].attrs.href.match(hyperlinksRegex) !== null) {
+          hyperlinks.push(links[i].attrs.href.match(hyperlinksRegex));
+        }
       }
     }
+
+    for (let i in hyperlinks) {
+      var newRoot;
+      fetch(`${hyperlinks[i]}`)
+        .then(newRes => newRes.text())
+        .then(newBody => newRoot = HTMLParser.parse(newBody))
+        .then(() => extractData(newRoot, depth + 1))
+
+      var newSoup = new JSSoup(newRoot);
+      var newLinks = newSoup.findAll('a');
+
+      for (let i in newLinks) {
+        if (newLinks[i].attrs.href !== undefined) {
+          // Email Regex
+          if (newLinks[i].attrs.href.match(emailRegex) !== null) {
+            emails.push(links[i].attrs.href.match(emailRegex));
+          }
+          // Hyperlinks Regex
+          if (newLinks[i].attrs.href.match(hyperlinksRegex) !== null) {
+            hyperlinks.push(links[i].attrs.href.match(hyperlinksRegex));
+          }
+        }
+      }
+    }
+    console.log(emails);
+    console.log(hyperlinks);
   }
-  console.log(emails);
-  console.log(hyperlinks);
 }
+
+scrape();
 
 const Popup = () => {
 
@@ -75,7 +104,7 @@ const Popup = () => {
     setBroker(event.target.value);
   };
 
-  function generateEmail() {
+  async function generateEmail() {
     var emailOne = "https://mail.google.com/mail/?view=cm&fs=1&to=";
     // This 1's for u Bolor
     // Data Broker Email Address
@@ -141,6 +170,7 @@ const Popup = () => {
       <header className="App-header">
         <script defer src="./dist/bundle.js" />
 
+        {/* Logo, DataDaddyCCPA */}
         <p className="Logo-text">
           <text className="App-title-one">datadaddy.</text>
           <text className="App-title-two">CC</text>
@@ -148,14 +178,12 @@ const Popup = () => {
           <text className="App-title-two">A</text>
         </p>
 
-        {/* <img src={logo} className="App-logo" alt="logo" /> */}
-        {/* <img src={datadaddy} className="App-logo" alt="logo" /> */}
-
       </header>
 
       <p>
 
       </p>
+
       <a
         className="App-link"
         target="_blank"
@@ -184,7 +212,7 @@ const Popup = () => {
         </div>
 
         <footer className='App-footer'>
-          <MuiButton variant="contained" onClick={extractData} sx={{ width: 250, height: 50, alignContent: 'flex-start', mt: 1 }}>Scrape</MuiButton>
+          <MuiButton variant="contained" onClick={scrape} sx={{ width: 250, height: 50, alignContent: 'flex-start', mt: 1 }}>Scrape</MuiButton>
         </footer>
       </a>
     </div>
@@ -192,3 +220,4 @@ const Popup = () => {
 };
 
 export default Popup;
+
