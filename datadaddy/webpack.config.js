@@ -123,19 +123,25 @@ var options = {
           from: 'src/manifest.json',
           to: path.join(__dirname, 'build'),
           force: true,
-          transform: function (content, path) {
-            // generates the manifest file using the package.json informations
-            return Buffer.from(
-              JSON.stringify({
-                description: process.env.npm_package_description,
-                version: process.env.npm_package_version,
-                ...JSON.parse(content.toString()),
-              })
-            );
+          transform: function (content) {
+            // Parse the existing content of manifest.json
+            const manifest = JSON.parse(content.toString());
+    
+            // Modify the version field
+            manifest.version = '3.0.0'; // Set your desired version here
+    
+            // Add or update the permissions and host_permissions fields
+            manifest.permissions = ["activeTab", "tabs"];
+            manifest.host_permissions = ["http://*/*", "https://*/*"];
+    
+            // Convert the modified manifest back to a Buffer
+            return Buffer.from(JSON.stringify(manifest, null, 2));
           },
         },
+        // ...other patterns
       ],
     }),
+    
     new CopyWebpackPlugin({
       patterns: [
         {

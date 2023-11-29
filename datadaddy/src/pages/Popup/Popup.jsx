@@ -31,59 +31,120 @@ var hyperlinks = [];
 var emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/gi;
 var hyperlinksRegex = /^(ftp|http|https):\/\/[^ "]+$/gi;
 var deep = 0;
-const url = 'http://www.ycombinator.com/legal/';
+var domain = 'ycombinator.com';
+const url = getCurrentTabUrl;
 
 async function scrape() {
-
-  fetch(`${url}`)
-    .then(res => res.text())
-    .then(body => root = HTMLParser.parse(body))
-    .then(() => extractData(root, deep))
-
-  function extractData(root, depth) {
-    if (depth === 1) { return }
-    if (depth > 3) { return }
-    const soup = new JSSoup(root);
-    var links = soup.findAll('a');
-
-    for (let i in links) {
-      if (links[i].attrs.href !== undefined) {
-        // Email Regex
-        if (links[i].attrs.href.match(emailRegex) !== null) {
-          emails.push(links[i].attrs.href.match(emailRegex));
-        }
-        // Hyperlinks Regex
-        if (links[i].attrs.href.match(hyperlinksRegex) !== null) {
-          hyperlinks.push(links[i].attrs.href.match(hyperlinksRegex));
-        }
-      }
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    const currentTab = tabs[0];
+    if (!currentTab || !currentTab.url) {
+      console.error('No URL to scrape');
+      return;
     }
 
-    for (let i in hyperlinks) {
-      var newRoot;
-      fetch(`${hyperlinks[i]}`)
-        .then(newRes => newRes.text())
-        .then(newBody => newRoot = HTMLParser.parse(newBody))
-        .then(() => extractData(newRoot, depth + 1))
+    try {
+      const res = await fetch(currentTab.url);
+      const body = await res.text();
+      root = HTMLParser.parse(body);
+      extractDataStarter(root, deep);
+    } catch (error) {
+      console.error('Error during scrape:', error);
+    }
+  });
+}
 
-      var newSoup = new JSSoup(newRoot);
-      var newLinks = newSoup.findAll('a');
+function getCurrentTabUrl(callback) {
+  var queryInfo = {
+    active: true,
+    currentWindow: true
+  };
 
-      for (let i in newLinks) {
-        if (newLinks[i].attrs.href !== undefined) {
-          // Email Regex
-          if (newLinks[i].attrs.href.match(emailRegex) !== null) {
-            emails.push(links[i].attrs.href.match(emailRegex));
-          }
-          // Hyperlinks Regex
-          if (newLinks[i].attrs.href.match(hyperlinksRegex) !== null) {
-            hyperlinks.push(links[i].attrs.href.match(hyperlinksRegex));
-          }
-        }
+  chrome.tabs.query(queryInfo, (tabs) => {
+    var tab = tabs[0];
+    console.log('Current tab:', tab); // Log the tab object for debugging
+    if (!tab.url) {
+      console.error('No URL found for the current tab');
+      return;
+    }
+    console.assert(typeof tab.url === 'string', 'tab.url should be a string');
+    callback(tab.url);
+  });
+}
+
+function extractDataStarter(root, depth) {
+  console.log("here in extract data starter, depth is " + depth);
+  if (depth === 4) return;
+
+  const soup = new JSSoup(root);
+  var links = soup.findAll('a');
+  var uniqueHyperlinks = new Set(); // Use a Set to store unique URLs
+
+  console.log(`Found ${links.length} links at depth ${depth}`); // Debugging step
+
+  for (let link of links) {
+    let href = link.attrs.href;
+    console.log('Found href:', href); // Log raw hrefs for debugging
+
+    if (href) {
+      // Convert relative URL to absolute URL here (if needed)
+      // Assuming currentTabUrl contains the base URL of the current tab
+      href = new URL(href, currentTabUrl).href;
+
+      // Email Regex
+      let emailMatches = href.match(emailRegex);
+      if (emailMatches) {
+        emails.push(...emailMatches);
+      }
+
+      // Hyperlinks Regex
+      let hyperlinkMatches = href.match(hyperlinksRegex);
+      if (hyperlinkMatches && domainFromUrl(href) === domain) {
+        uniqueHyperlinks.add(href);
       }
     }
-    console.log(emails);
-    console.log(hyperlinks);
+  }
+
+  console.log('Unique Hyperlinks:', Array.from(uniqueHyperlinks)); // Log unique hyperlinks
+
+  // Sequential fetch with delay to prevent rate limiting
+  const delay = ms => new Promise(res => setTimeout(res, ms));
+  const fetchSequentially = async (urls) => {
+    for (const url of urls) {
+      try {
+        console.log(`Fetching ${url} at depth ${depth}`); // Log each fetch call
+        const res = await fetch(url);
+        const body = await res.text();
+        let newRoot = HTMLParser.parse(body);
+        await delay(1000); // Delay to prevent rate limiting
+        extractDataStarter(newRoot, depth + 1);
+      } catch (error) {
+        console.error('Error fetching or parsing:', url, error);
+      }
+    }
+  };
+
+  fetchSequentially(Array.from(uniqueHyperlinks));
+
+  console.log('Emails:', emails);
+}
+
+// Assume currentTabUrl is available and contains the URL of the current tab
+let currentTabUrl = 'https://example.com'; // Replace with actual current tab URL
+
+
+function domainFromUrl(url, baseDomain) {
+  // If the URL is relative, prepend the base domain to make it absolute
+  if (url.startsWith('/')) {
+    url = `${baseDomain}${url}`;
+  }
+
+  // Create a URL object, which can handle various URL formats and edge cases
+  try {
+    const urlObj = new URL(url);
+    return urlObj.hostname; // Returns the domain along with subdomains if any
+  } catch (e) {
+    console.error(`Error parsing URL: ${url}`, e);
+    return null; // Return null if the URL couldn't be parsed
   }
 }
 
@@ -123,48 +184,6 @@ const Popup = () => {
     chrome.tabs.create({ url: newURL });
   }
 
-  // ...
-  // I HAVE NO IDEA IF THIS CODE IS NECESSARY...
-  // SEEMS TO FUNCTION WHEN I COMMENT IT OUT?...
-  // CAN'T REMEMBER WHAT I WAS DOING WITH IT...
-  // LOOKS UI RELATED?...
-  //
-  // ¯\_(ツ)_/¯
-  //
-  // ...
-  const BootstrapInput = styled(InputBase)(({ theme }) => ({
-    'label + &': {
-      marginTop: theme.spacing(3),
-    },
-    '& .MuiInputBase-input': {
-      borderRadius: 4,
-      position: 'relative',
-      backgroundColor: theme.palette.background.paper,
-      border: '1px solid #ced4da',
-      fontSize: 16,
-      padding: '10px 26px 10px 12px',
-      transition: theme.transitions.create(['border-color', 'box-shadow']),
-      // Use the system font instead of the default Roboto font.
-      fontFamily: [
-        '-apple-system',
-        'BlinkMacSystemFont',
-        '"Segoe UI"',
-        'Roboto',
-        '"Helvetica Neue"',
-        'Arial',
-        'sans-serif',
-        '"Apple Color Emoji"',
-        '"Segoe UI Emoji"',
-        '"Segoe UI Symbol"',
-      ].join(','),
-      '&:focus': {
-        borderRadius: 4,
-        borderColor: '#80bdff',
-        boxShadow: '0 0 0 0.2rem rgba(0,123,255,.25)',
-      },
-    },
-  }));
-
   return (
     <div className="App">
       <header className="App-header">
@@ -172,10 +191,10 @@ const Popup = () => {
 
         {/* Logo, DataDaddyCCPA */}
         <p className="Logo-text">
-          <text className="App-title-one">datadaddy.</text>
-          <text className="App-title-two">CC</text>
-          <text className="App-title-three">P</text>
-          <text className="App-title-two">A</text>
+          <span className="App-title-one">datadaddy.</span>
+          <span className="App-title-two">CC</span>
+          <span className="App-title-three">P</span>
+          <span className="App-title-two">A</span>
         </p>
 
       </header>
