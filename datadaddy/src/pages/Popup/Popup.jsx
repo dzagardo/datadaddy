@@ -1,85 +1,52 @@
-import React from 'react';
-import logo from '../../assets/img/logo.svg';
-import datadaddy from '../../assets/img/DataDaddyLogo.png';
-import Greetings from '../../containers/Greetings/Greetings';
-import './Popup.css';
+import React, { useState, useEffect } from 'react';
+import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
 import MuiButton from '@mui/material/Button';
 import SendIcon from '@mui/icons-material/Send';
-import InputLabel from '@mui/material/InputLabel';
-import MenuItem from '@mui/material/MenuItem';
-import FormControl from '@mui/material/FormControl';
-import Select from '@mui/material/Select';
-import InputBase from '@mui/material/InputBase';
-import { styled } from '@mui/material/styles';
-import { getElementById } from 'domutils';
-import Tautologistics from 'htmlparser';
-import { useState, useEffect } from 'react';
+import './Popup.css';
 
-const HTMLParser = require('node-html-parser')
-
+const HTMLParser = require('node-html-parser');
 const JSSoup = require('jssoup').default;
 
-// Add this in your component file
-require('react-dom');
-window.React2 = require('react');
-console.log(window.React1 === window.React2);
+const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]{2,})\b/gi;
 
-let root;
-var emails = new Set();  // Using a Set to avoid duplicate emails
-var emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]{2,})\b/gi;
-
-async function scrape() {
-  console.log('Starting the scrape function'); // Debugging step
+async function scrape(addEmailToState, scrapeTimeoutReached) {
   chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
     const currentTab = tabs[0];
     if (!currentTab || !currentTab.url) {
       console.error('No URL to scrape');
       return;
     }
-    console.log(`Scraping URL: ${currentTab.url}`); // Debugging step
 
     try {
       const res = await fetch(currentTab.url);
       const body = await res.text();
-      root = HTMLParser.parse(body);
-      extractDataStarter(root, 0); // Ensure depth starts at 0
+      const root = HTMLParser.parse(body);
+      extractDataStarter(root, 0, addEmailToState, scrapeTimeoutReached);
     } catch (error) {
       console.error('Error during scrape:', error);
     }
   });
 }
 
-function extractDataStarter(root, depth, currentTabUrl) {
-  console.log(`Extracting data, depth is ${depth}`);
-  if (depth >= 3) {
-    // console.log('Reached max depth');
-    return;
-  }
+function extractDataStarter(root, depth, addEmailToState, scrapeTimeoutReached) {
+  if (depth >= 3 || scrapeTimeoutReached) return;
 
   const soup = new JSSoup(root);
-  var links = soup.findAll('a');
-  var priorityLinks = [];
-  var otherLinks = [];
+  const links = soup.findAll('a');
   const keywords = ["privacy", "do not track", "personal information", "personal data"];
+  const priorityLinks = [];
+  const otherLinks = [];
 
-  console.log(`Found ${links.length} links at depth ${depth}`);
-  extractEmailsFromText(soup.text);  // Extract emails from the text of the page
+  extractEmailsFromText(soup.text, addEmailToState);
 
-  for (let link of links) {
-    let href = link.attrs.href;
+  links.forEach(link => {
+    const href = link.attrs.href;
     if (href && href !== '#' && !href.startsWith('javascript')) {
-      // console.log('Found href:', href);
-  
       if (href.startsWith('mailto:')) {
-        extractEmailsFromHref(href);  // Extract emails from mailto links
-      } else {
-        // Check if the URL is absolute; if not, return immediately
-        if (!href.startsWith('http://') && !href.startsWith('https://')) {
-          continue;
-        }
-        
-        let linkText = link.getText();
+        extractEmailsFromHref(href, addEmailToState);
+      } else if (href.startsWith('http://') || href.startsWith('https://')) {
+        const linkText = link.getText();
         if (containsKeywords(linkText, keywords) || containsKeywords(href, keywords)) {
           priorityLinks.push(href);
         } else {
@@ -87,82 +54,91 @@ function extractDataStarter(root, depth, currentTabUrl) {
         }
       }
     }
-  }
+  });
 
-  console.log('Priority Hyperlinks:', priorityLinks);
-  console.log('Other Hyperlinks:', otherLinks);
-  console.log('Emails:', Array.from(emails));  // Log collected emails
+  fetchSequentially(priorityLinks, addEmailToState, depth, scrapeTimeoutReached);
+  fetchSequentially(otherLinks, addEmailToState, depth, scrapeTimeoutReached);
+}
 
-  // Sequential fetch with delay to prevent rate limiting
-  const delay = ms => new Promise(res => setTimeout(res, ms));
-  // Make sure this part is calling the recursive function correctly
-  const fetchSequentially = async (urls) => {
-    for (const url of urls) {
-      try {
-        // console.log(`Fetching ${url} at depth ${depth}`);
-        const res = await fetch(url);
+async function fetchSequentially(urls, addEmailToState, depth, scrapeTimeoutReached) {
+  for (const url of urls) {
+    if (scrapeTimeoutReached) break; // Exit the loop if timeout is reached
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        // Handle HTTP errors like 404, 500, etc.
+        console.error(`HTTP error! status: ${res.status}`);
+      } else {
         const body = await res.text();
-        let newRoot = HTMLParser.parse(body);
+        const newRoot = HTMLParser.parse(body);
         await delay(1000);
-        extractDataStarter(newRoot, depth + 1, url); // Ensure the depth is incremented
-      } catch (error) {
-        console.error('Error fetching or parsing:', url, error);
+        await extractDataStarter(newRoot, depth + 1, addEmailToState, scrapeTimeoutReached);
       }
+    } catch (error) {
+      // Handle network errors, parsing errors, etc.
+      // You can also implement UI error handling here, e.g., by setting a state variable.
+      console.error(`Error fetching or parsing: ${url}`, error.message);
     }
-  };
-
-  // Process priority links first
-  fetchSequentially(priorityLinks).then(() => {
-    // Process other links after priority links
-    fetchSequentially(otherLinks);
-  });
+  }
 }
 
-function extractEmailsFromText(text) {
-  // Split the text by spaces and other non-word characters to avoid concatenation issues
-  let words = text.split(/\s+|[,.!?;:()]+/); 
+function extractEmailsFromText(text, addEmailToState) {
+  const words = text.split(/\s+|[,.!?;:()]+/);
   words.forEach(word => {
-    let matches = word.match(emailRegex);
+    const matches = word.match(emailRegex);
     if (matches) {
-      matches.forEach(email => emails.add(email.trim())); // Trim any whitespace around the email
+      matches.forEach(email => addEmailToState(email.trim()));
     }
   });
 }
 
-function extractEmailsFromHref(href) {
-  let email = href.replace('mailto:', '');
-  emails.add(email);
+function extractEmailsFromHref(href, addEmailToState) {
+  const email = href.replace('mailto:', '');
+  addEmailToState(email);
 }
 
 function containsKeywords(text, keywords) {
   return keywords.some(keyword => text.toLowerCase().includes(keyword));
 }
 
-// Call the scrape function with the current tab URL
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  const currentTabUrl = tabs[0].url;
-  scrape(currentTabUrl); // Pass the current tab URL to the scrape function
-});
-
-function domainFromUrl(url, baseDomain) {
-  // If the URL is relative, prepend the base domain to make it absolute
-  if (url.startsWith('/')) {
-    url = `${baseDomain}${url}`;
-  }
-
-  // Create a URL object, which can handle various URL formats and edge cases
-  try {
-    const urlObj = new URL(url);
-    return urlObj.hostname; // Returns the domain along with subdomains if any
-  } catch (e) {
-    console.error(`Error parsing URL: ${url}`, e);
-    return null; // Return null if the URL couldn't be parsed
-  }
-}
-
-scrape();
+const delay = ms => new Promise(res => setTimeout(res, ms));
 
 const Popup = () => {
+  const [emails, setEmails] = useState(new Set());
+  const [scrapeButtonText, setScrapeButtonText] = useState('Generate Email');
+  const [isScraping, setIsScraping] = useState(false);
+  const [scrapeTimeoutReached, setScrapeTimeoutReached] = useState(false);
+
+
+  const addEmailToState = newEmail => {
+    setEmails(prevEmails => new Set([...prevEmails, newEmail]));
+  };
+
+  const handleScrape = async () => {
+    setIsScraping(true);
+    setScrapeButtonText(<CircularProgress size={24} />);
+    setScrapeTimeoutReached(false);
+
+    const scrapeTimeout = setTimeout(() => {
+      setScrapeTimeoutReached(true);
+    }, 10000); // Adjust timeout as needed
+
+    await scrape(addEmailToState, scrapeTimeoutReached);
+
+    setTimeout(() => {
+      clearTimeout(scrapeTimeout);
+      setIsScraping(false);
+      setScrapeButtonText('Email Ready!');
+    }, 8000);
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setScrapeButtonText('Email Ready!');
+      setIsScraping(false);
+    }, 10000);
+    return () => clearTimeout(timer);
+  }, []);
 
   async function generateEmail() {
     var emailOne = "https://mail.google.com/mail/?view=cm&fs=1&to=";
@@ -199,7 +175,9 @@ const Popup = () => {
         <div>
           <TextField id="userName" label="Your Name" variant="outlined" sx={{ width: 250, height: 60, mt: 2 }} />
           <MuiButton variant="outlined" onClick={generateEmail} endIcon={<SendIcon />} sx={{ width: 250, height: 60, mt: 2 }}>OPEN EMAIL IN NEW TAB</MuiButton>
-          <MuiButton variant="contained" onClick={scrape} sx={{ width: 250, height: 60, alignContent: 'flex-start', mt: 2 }}>Scrape</MuiButton>
+          <MuiButton variant="contained" onClick={handleScrape} disabled={isScraping} sx={{ width: 250, height: 60, alignContent: 'flex-start', mt: 2 }}>
+            {scrapeButtonText}
+          </MuiButton>
         </div>
 
         <footer className='App-footer'>
