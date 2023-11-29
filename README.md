@@ -8,9 +8,9 @@
 - [X] Add RegEx to parse emails
 - [X] Settle on a crawling algorithm
 - [X] Set up (probably recursive) Fetch calls
-- [ ] Dynamically load url from current tab
-- [ ] Debug infinite fetch calls
-- [ ] Integrate crawler
+- [X] Dynamically load url from current tab
+- [X] Debug infinite fetch calls
+- [X] Integrate crawler
 
 ### Form Filling Automation
 - [X] Touch base with OneTrust
