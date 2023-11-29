@@ -129,7 +129,7 @@ const Popup = () => {
       clearTimeout(scrapeTimeout);
       setIsScraping(false);
       setScrapeButtonText('Email Ready!');
-    }, 8000);
+    }, 10000);
   };
 
   useEffect(() => {
